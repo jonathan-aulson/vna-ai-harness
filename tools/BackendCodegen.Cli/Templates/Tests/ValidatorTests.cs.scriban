@@ -1,0 +1,62 @@
+using FluentAssertions;
+using {{ application_namespace }};
+using {{ application_namespace }}.Dtos;
+using Xunit;
+
+namespace {{ test_namespace }};
+
+{{- $req_fields = fields | array.filter @(do; ret $0.name != "Status"; end) -}}
+{{- $dto_rules = [] -}}
+{{- for r in validation_rules -}}
+{{-   $field_in_req = false -}}
+{{-   for f in $req_fields -}}
+{{-     if f.name == r.field -}}{{- $field_in_req = true -}}{{- end -}}
+{{-   end -}}
+{{-   if $field_in_req -}}{{- $dto_rules = $dto_rules | array.add r -}}{{- end -}}
+{{- end -}}
+{{ for op in operations -}}
+{{ if op.request_dto -}}
+public class {{ entity_name }}ValidatorTests
+{
+    private readonly {{ entity_name }}Validator _sut = new();
+
+    [Fact]
+    public async Task Validate_ShouldPass_WhenAllRequiredFieldsProvided()
+    {
+        var request = ValidRequest();
+        var result  = await _sut.ValidateAsync(request);
+        result.IsValid.Should().BeTrue();
+    }
+
+{{ for rule in $dto_rules -}}
+{{-   $has_not_empty = rule.rule | string.contains "NotEmpty" -}}
+{{-   $has_max_len   = (rule.rule | string.contains "MaximumLength") || (rule.rule | string.contains "MaxLength") -}}
+{{-   $has_not_null  = rule.rule | string.contains "NotNull" -}}
+{{-   $rule_label    = rule.rule | string.replace "\"" "" | string.replace "'" "" | string.replace " " "" | string.replace "=" "" | string.replace ";" "And" | string.replace "." "" | string.replace "(" "" | string.replace ")" "" -}}
+    [Fact]
+    public async Task Validate_ShouldFail_When{{ rule.field }}{{ $rule_label }}Violated()
+    {
+        // Arrange
+        var request = ValidRequest() with
+        {
+            {{ rule.field }} = {{ if $has_not_empty || $has_not_null }}{{ if rule.field_type == "string" || rule.field_type == "" }}null!{{ else }}default{{ end }}{{ else if $has_max_len && rule.max_length > 0 }}new string('a', {{ rule.max_length + 1 }}){{ else }}default{{ end }}
+        };
+
+        // Act
+        var result = await _sut.ValidateAsync(request);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof({{ op.request_dto }}.{{ rule.field }}));
+    }
+
+{{ end -}}
+    private static {{ op.request_dto }} ValidRequest() => new(
+{{ for field in $req_fields -}}
+        {{ field.name }}: {{ if field.type == "string" }}"Valid{{ field.name }}"{{ else if field.type == "int" || field.type == "long" }}1{{ else if field.type == "bool" }}true{{ else if field.type == "Guid" }}Guid.NewGuid(){{ else if field.type == "DateTime" }}DateTime.UtcNow{{ else if field.type == "DateOnly" }}DateOnly.FromDateTime(DateTime.UtcNow){{ else }}default{{ end }}{{ if !for.last }},{{ end }}
+{{ end -}}
+    );
+}
+
+{{ end -}}
+{{ end -}}

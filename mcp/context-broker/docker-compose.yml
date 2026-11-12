@@ -1,0 +1,79 @@
+# MCP Stack — Context Broker
+#
+# Run from this directory (mcp/context-broker/):
+#
+#   First run / normal:   docker compose up -d
+#   Development:          docker compose --profile dev up
+#   Rebuild broker:       docker compose up -d --build context-broker
+#
+# No external API keys. No local models.
+# Copy .env.example → .env before first run.
+
+name: ai-orchestrator-mcp
+
+networks:
+  mcp-net:
+    driver: bridge
+
+services:
+
+  # ── Context Broker MCP — TypeScript + Fastify ─────────────────────────────────
+  #
+  #  MCP endpoint: http://localhost:3100/mcp
+  #  Health check: http://localhost:3100/health
+  #
+  #  Tools (all local, zero external API calls):
+  #    count_tokens  — js-tiktoken
+  #    strip_html    — HTML tag removal and entity decoding
+  #
+  context-broker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: ai-orchestrator/context-broker:latest
+    container_name: mcp-context-broker
+    networks:
+      - mcp-net
+    ports:
+      - "${BROKER_HOST_PORT:-3100}:3100"
+    environment:
+      PORT: 3100
+      NODE_ENV: production
+      LOG_LEVEL: info
+      TOKEN_BUDGET_THRESHOLD: ${TOKEN_BUDGET_THRESHOLD:-700}
+      SESSION_TOKEN_THRESHOLD: ${SESSION_TOKEN_THRESHOLD:-1500}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3100/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Context Broker (dev) — hot-reload ─────────────────────────────────────────
+  #
+  #  docker compose --profile dev up context-broker-dev
+  #
+  context-broker-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: mcp-context-broker-dev
+    networks:
+      - mcp-net
+    ports:
+      - "${BROKER_DEV_PORT:-3101}:3100"
+    volumes:
+      - ./src:/app/src:ro
+    environment:
+      PORT: 3100
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      TOKEN_BUDGET_THRESHOLD: ${TOKEN_BUDGET_THRESHOLD:-700}
+      SESSION_TOKEN_THRESHOLD: ${SESSION_TOKEN_THRESHOLD:-1500}
+    entrypoint: ["npx", "tsx", "watch", "src/index.ts"]
+    profiles:
+      - dev
+    restart: unless-stopped

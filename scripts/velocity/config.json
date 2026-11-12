@@ -1,0 +1,19 @@
+{
+  "ado_org": "vnamow",
+  "ado_project": "MOW 2.0",
+  "ado_team": "MOW 2.0 Team",
+  "iteration_paths": [
+    "MOW 2.0\\Sprint 0",
+    "MOW 2.0\\Sprint 1",
+    "MOW 2.0\\Sprint 2"
+  ],
+  "team_leads": [
+    "Cesar Figueroa",
+    "Chris Thompson",
+    "Jonathan Aulson",
+    "Marcela Ferraro",
+    "John Ellis",
+    "Kim Nguyen"
+  ],
+  "history_max_days": 90
+}

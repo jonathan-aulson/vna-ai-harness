@@ -1,0 +1,26 @@
+{
+  "$comment": "Schema for .github/session/tasks/task-{task-id}/implementation-coverage-contract.json — the authoritative story-to-implementation traceability artifact owned by the orchestrator. Rules: 'field' is the canonical field name as it appears in the story (used by implementing agents to validate completeness). Every story-required field or behavior touched by the slice must appear. 'Missing' may not proceed without explicit human approval. 'ExplicitlyDeferred' is allowed only when the deferral was called out at plan/slice approval. Do NOT add redundant mapping columns (source, dtoField, entityField, dbColumn, uiField, validation, tests, implementedBy) — derivable from the generation contract; they add token cost without validation value.",
+  "workItem": {
+    "userStoryId": "string",
+    "taskId": "string",
+    "classification": "BE|FE|DATA|FULL",
+    "title": "string"
+  },
+  "coverage": {
+    "storyFields": [
+      {
+        "field": "string",
+        "status": "CoveredNow|ExplicitlyDeferred|Missing",
+        "notes": "string"
+      }
+    ],
+    "behaviors": [
+      {
+        "behavior": "string",
+        "ac": [1],
+        "status": "CoveredNow|ExplicitlyDeferred|Missing",
+        "notes": "string"
+      }
+    ]
+  }
+}

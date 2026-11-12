@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>__PAGE_TITLE__</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-NrKB+u6Ts6AtkIhwPixiKTzgSKNblyhlk0Sohlgar9UHUBzai/sgnNNWWd291xqt" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg1: __THEME_BG1__;
+    --bg2: __THEME_BG2__;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2) 60%, __THEME_ACCENT__);
+    color: #fff;
+    min-height: 100vh;
+    padding: 24px 32px 48px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2.2rem;
+    margin: 0 0 4px;
+    text-shadow: 0 2px 10px rgba(0,0,0,.4);
+  }
+  .subtitle {
+    text-align: center;
+    color: #d8b4fe;
+    margin-bottom: 24px;
+    font-size: 0.95rem;
+  }
+  .updated {
+    text-align: center;
+    color: #c4b5fd;
+    font-size: 0.8rem;
+    margin-bottom: 28px;
+  }
+  .podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 18px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+  .podium .place {
+    text-align: center;
+    background: rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(6px);
+    border: 2px solid rgba(255,255,255,0.15);
+    min-width: 160px;
+  }
+  .podium .place.gold { border-color: #fbbf24; box-shadow: 0 0 30px rgba(251,191,36,.5); order: 2; transform: translateY(-14px); }
+  .podium .place.silver { border-color: #cbd5e1; box-shadow: 0 0 20px rgba(203,213,225,.4); order: 1; }
+  .podium .place.bronze { border-color: #d97706; box-shadow: 0 0 20px rgba(217,119,6,.4); order: 3; }
+  .podium .medal { font-size: 2.4rem; }
+  .podium .name { font-weight: 700; font-size: 1.05rem; margin: 6px 0 2px; }
+  .podium .pts { font-size: 1.5rem; font-weight: 800; }
+  .podium .pts.gold-text { color: #fde68a; }
+  .podium .pts.silver-text { color: #e2e8f0; }
+  .podium .pts.bronze-text { color: #fed7aa; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 24px;
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+  @media (max-width: 950px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    padding: 20px;
+    backdrop-filter: blur(6px);
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 1.1rem;
+    color: #ede9fe;
+  }
+  canvas { max-width: 100%; }
+  .legend-note {
+    font-size: 0.75rem;
+    color: #c4b5fd;
+    margin-top: 10px;
+    line-height: 1.4;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  th { color: #ddd6fe; font-weight: 600; }
+  tr:hover { background: rgba(255,255,255,0.05); }
+  .rank-badge {
+    display: inline-block;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: __THEME_ACCENT__;
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+  <h1>__PAGE_H1__</h1>
+  <div class="subtitle">__PAGE_SUBTITLE__</div>
+  <div class="updated" id="updatedLine">Last updated: —</div>
+
+  <div class="podium" id="podium"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>🔥 Full Leaderboard</h2>
+      <canvas id="leaderboardChart" height="360"></canvas>
+    </div>
+    <div class="card">
+      <h2>📈 Daily Trend (Total Velocity Points)</h2>
+      <canvas id="trendChart" height="360"></canvas>
+      <div class="legend-note">Tracks each person's cumulative velocity credit day over day. New daily snapshots get appended automatically as sprints progress — flat lines mean no newly Closed stories credited that day.</div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:1300px;margin:24px auto 0;">
+    <h2>📋 Detail Table</h2>
+    <table id="detailTable">
+      <thead>
+        <tr><th>#</th><th>Person</th><th>Sprint 0</th><th>Sprint 1</th><th>Sprint 2</th><th>Total</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+const DATA = __DATA_JSON__;
+const LAST_UPDATED = "__LAST_UPDATED__";
+
+document.getElementById('updatedLine').textContent = "Last updated: " + LAST_UPDATED;
+
+const palette = [
+  '#fbbf24','#f472b6','#60a5fa','#34d399','#a78bfa','#fb923c','#f87171',
+  '#22d3ee','#facc15','#e879f9','#4ade80','#818cf8','#fca5a5','#2dd4bf',
+  '#c084fc','#fdba74','#38bdf8','#a3e635','#f9a8d4'
+];
+
+const sorted = [...DATA.leaderboard].sort((a,b) => b.total - a.total);
+
+// Podium (top 3)
+const podiumEl = document.getElementById('podium');
+const medalInfo = [
+  {cls:'gold', medal:'🥇', textCls:'gold-text'},
+  {cls:'silver', medal:'🥈', textCls:'silver-text'},
+  {cls:'bronze', medal:'🥉', textCls:'bronze-text'},
+];
+sorted.slice(0,3).forEach((p, i) => {
+  const m = medalInfo[i];
+  const div = document.createElement('div');
+  div.className = 'place ' + m.cls;
+  div.innerHTML = `<div class="medal">${m.medal}</div><div class="name">${p.name}</div><div class="pts ${m.textCls}">${p.total.toFixed(2)} pts</div>`;
+  podiumEl.appendChild(div);
+});
+
+// Leaderboard horizontal bar chart
+new Chart(document.getElementById('leaderboardChart'), {
+  type: 'bar',
+  data: {
+    labels: sorted.map(p => p.name),
+    datasets: [{
+      label: 'Velocity Points',
+      data: sorted.map(p => p.total),
+      backgroundColor: sorted.map((_, i) => palette[i % palette.length]),
+      borderRadius: 8,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.parsed.x.toFixed(2)} velocity pts`
+        }
+      }
+    },
+    scales: {
+      x: { beginAtZero: true, ticks: { color: '#ede9fe' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+      y: { ticks: { color: '#ede9fe', font: { weight: 'bold' } }, grid: { display: false } }
+    }
+  }
+});
+
+// Trend line chart
+const trendDatasets = sorted.slice(0, 8).map((p, i) => ({
+  label: p.name,
+  data: DATA.history[p.name] || DATA.history_dates.map(() => p.total),
+  borderColor: palette[i % palette.length],
+  backgroundColor: palette[i % palette.length] + '33',
+  tension: 0.3,
+  pointRadius: 4,
+  pointHoverRadius: 6,
+  fill: false,
+}));
+
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: DATA.history_dates,
+    datasets: trendDatasets,
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#ede9fe', boxWidth: 12 }, position: 'bottom' },
+    },
+    scales: {
+      x: { ticks: { color: '#ede9fe' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+      y: { beginAtZero: true, ticks: { color: '#ede9fe' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+    }
+  }
+});
+
+// Detail table
+const tbody = document.querySelector('#detailTable tbody');
+sorted.forEach((p, i) => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><span class="rank-badge">${i+1}</span></td><td>${p.name}</td><td>${p.sprint0 ? p.sprint0.toFixed(2) : '–'}</td><td>${p.sprint1 ? p.sprint1.toFixed(2) : '–'}</td><td>${p.sprint2 ? p.sprint2.toFixed(2) : '–'}</td><td><b>${p.total.toFixed(2)}</b></td>`;
+  tbody.appendChild(tr);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using {{ domain_namespace }};
+
+namespace {{ infrastructure_namespace }}.Configurations;
+
+internal sealed class {{ entity_name }}Configuration : IEntityTypeConfiguration<{{ entity_name }}>
+{
+    public void Configure(EntityTypeBuilder<{{ entity_name }}> builder)
+    {
+{{ if record_lock_kind == "record" }}
+        builder.IsLockableRecord();
+
+{{ else if record_lock_kind == "partOf" }}
+        builder.IsPartOfRecord<{{ entity_name }}, {{ record_lock_parent }}>(x => x.{{ record_lock_fk }}{{ if record_lock_ownerless_not_lockable }}, OwnerlessIs.NotLockable{{ end }});
+
+{{ else if record_lock_kind == "notLockable" }}
+        builder.IsNotLockable("{{ record_lock_reason }}");
+
+{{ end }}
+        builder.ToTable("{{ table_name }}"{{ if schema_name != "" }}, "{{ schema_name }}"{{ end }});
+        builder.HasKey(x => x.{{ pk_name }});
+        builder.Property(x => x.{{ pk_name }})
+            .HasColumnName("{{ pk_column_name }}")
+{{ if primary_key_type == "Guid" }}
+            .HasDefaultValueSql("NEWID()");
+{{ else }}
+            .ValueGeneratedNever();
+{{ end }}
+{{ if record_lock_kind == "record" }}
+        builder.Property(x => x.Version)
+            .HasColumnName("version")
+            .IsRowVersion();
+{{ end }}
+{{ for field in fields }}
+{{ if field.name != pk_name }}
+        builder.Property(x => x.{{ field.name }})
+            .HasColumnName("{{ field.column_name }}"){{ if field.required }}.IsRequired(){{ end }}{{ if field.max_length > 0 }}.HasMaxLength({{ field.max_length }}){{ end }};
+{{ end }}
+{{ end }}
+{{ for idx in indexes }}
+{{ if idx.fields.size == 1 }}
+        builder.HasIndex(x => x.{{ idx.fields[0] }}){{ if idx.is_unique }}.IsUnique(){{ end }};
+{{ else }}
+        builder.HasIndex(x => new { {{ for f in idx.fields }}x.{{ f }}{{ if !for.last }}, {{ end }}{{ end }} }){{ if idx.is_unique }}.IsUnique(){{ end }};
+{{ end }}
+{{ end }}
+    }
+}

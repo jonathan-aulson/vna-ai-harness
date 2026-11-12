@@ -1,0 +1,20 @@
+using {{ application_namespace }}.Dtos;
+using {{ result_namespace }};
+
+namespace {{ application_namespace }};
+
+public interface I{{ entity_name }}Service
+{
+{{ for op in operations -}}
+{{ $has_id = op.has_route_id -}}
+{{- if $has_id && op.request_dto }}
+    Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ pk_type }} {{ pk_param_name }}, {{ op.request_dto }} request, CancellationToken cancellationToken = default);
+{{- else if $has_id }}
+    Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ pk_type }} {{ pk_param_name }}, CancellationToken cancellationToken = default);
+{{- else if op.request_dto }}
+    Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ op.request_dto }} request, CancellationToken cancellationToken = default);
+{{- else }}
+    Task<Result<{{ op.response_dto }}>> {{ op.service_method }}(CancellationToken cancellationToken = default);
+{{- end }}
+{{ end -}}
+}

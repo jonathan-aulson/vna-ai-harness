@@ -1,0 +1,77 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using {{ application_namespace }}.Dtos;
+
+namespace {{ application_namespace }};
+
+[ApiController]
+[Route("{{ route_base }}")]
+public sealed class {{ feature_name }}Controller : ControllerBase
+{
+    private readonly {{ if use_service_interface }}I{{ end }}{{ entity_name }}Service _service;
+    private readonly ILogger<{{ feature_name }}Controller> _logger;
+
+    public {{ feature_name }}Controller({{ if use_service_interface }}I{{ end }}{{ entity_name }}Service service, ILogger<{{ feature_name }}Controller> logger)
+    {
+        _service = service;
+        _logger  = logger;
+    }
+{{ for op in operations -}}
+{{ $is_body = op.http_method == "POST" || op.http_method == "PUT" || op.http_method == "PATCH" -}}
+{{ $has_id  = op.has_route_id }}
+    [Http{{ op.http_method | string.downcase | string.capitalize }}{{ if op.route != "" }}("{{ op.route }}"){{ end }}]
+{{ for response in op.responses }}
+{{ if response.has_payload }}
+{{ if response.content_type && response.description }}
+        [ProducesResponseType(typeof({{ response.payload_type }}), {{ response.status_code }}, "{{ response.content_type }}", Description = "{{ response.description | string.replace '"' '\\"' }}")]
+{{ else if response.content_type }}
+        [ProducesResponseType(typeof({{ response.payload_type }}), {{ response.status_code }}, "{{ response.content_type }}")]
+{{ else if response.description }}
+        [ProducesResponseType(typeof({{ response.payload_type }}), {{ response.status_code }}, Description = "{{ response.description | string.replace '"' '\\"' }}")]
+{{ else }}
+        [ProducesResponseType(typeof({{ response.payload_type }}), {{ response.status_code }})]
+{{ end }}
+{{ else }}
+{{ if response.description }}
+        [ProducesResponseType({{ response.status_code }}, Description = "{{ response.description | string.replace '"' '\\"' }}")]
+{{ else }}
+        [ProducesResponseType({{ response.status_code }})]
+{{ end }}
+{{ end }}
+{{ end }}
+    public async Task<IActionResult> {{ op.name }}Async(
+{{- if $has_id && $is_body }}
+        [FromRoute] {{ pk_type }} id, [FromBody] {{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else if $is_body }}
+        [FromBody] {{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else if $has_id && op.request_dto }}
+        [FromRoute] {{ pk_type }} id, [FromQuery] {{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else if $has_id }}
+        [FromRoute] {{ pk_type }} id, CancellationToken cancellationToken = default)
+{{- else if op.request_dto }}
+        [FromQuery] {{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else }}
+        CancellationToken cancellationToken = default)
+{{- end }}
+    {
+        _logger.LogInformation("{{ op.name }} {{ entity_name }} invoked.");
+{{- if $has_id && op.request_dto }}
+        var result = await _service.{{ op.service_method }}(id, request, cancellationToken);
+{{- else if $has_id }}
+        var result = await _service.{{ op.service_method }}(id, cancellationToken);
+{{- else if op.request_dto }}
+        var result = await _service.{{ op.service_method }}(request, cancellationToken);
+{{- else }}
+        var result = await _service.{{ op.service_method }}(cancellationToken);
+{{- end }}
+        if (result.Success)
+            return StatusCode({{ op.success_status }}, result.Data);
+
+        if (result.Error?.Contains("NotFound", StringComparison.OrdinalIgnoreCase) == true)
+            return NotFound(new ProblemDetails { Title = "Not found", Detail = result.Error });
+
+        return BadRequest(new ProblemDetails { Title = "Validation failed", Detail = result.Error });
+    }
+{{ end -}}
+}

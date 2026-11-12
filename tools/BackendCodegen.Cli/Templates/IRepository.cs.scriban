@@ -1,0 +1,30 @@
+using {{ domain_namespace }};
+
+namespace {{ application_namespace }};
+
+public interface I{{ entity_name }}Repository
+{
+{{ $seen = {} }}
+{{ for op in operations -}}
+{{ for method in op.repository_methods -}}
+{{- if !($seen[method]) }}
+{{-   $seen[method] = true }}
+{{-   if method == "AddAsync" }}
+    Task AddAsync({{ entity_name }} entity, CancellationToken ct = default);
+{{-   else if method == "SaveChangesAsync" }}
+    Task SaveChangesAsync(CancellationToken ct = default);
+{{-   else if method == "SaveAsync" }}
+    Task<{{ entity_name }}> SaveAsync({{ entity_name }} entity, CancellationToken ct = default);
+{{-   else if method == "UpdateAsync" }}
+    Task UpdateAsync({{ entity_name }} entity, CancellationToken ct = default);
+{{-   else if method == "DeleteAsync" }}
+    Task DeleteAsync({{ pk_type }} id, CancellationToken ct = default);
+{{-   else if method == "GetByIdAsync" }}
+    Task<{{ entity_name }}?> GetByIdAsync({{ pk_type }} id, CancellationToken ct = default);
+{{-   else if method == "GetAllAsync" }}
+    Task<IReadOnlyList<{{ entity_name }}>> GetAllAsync(CancellationToken ct = default);
+{{-   end }}
+{{- end }}
+{{ end -}}
+{{ end -}}
+}

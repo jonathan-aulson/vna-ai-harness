@@ -1,0 +1,14 @@
+using Microsoft.Extensions.DependencyInjection;
+
+namespace {{ application_namespace }};
+
+public static class {{ module_name }}
+{
+    public static IServiceCollection Add{{ feature_name }}Module(this IServiceCollection services)
+    {
+        services.AddScoped<{{ if use_repository_interface }}I{{ entity_name }}Repository, {{ end }}{{ entity_name }}Repository>();
+        services.AddScoped<{{ entity_name }}Validator>();
+        services.AddScoped<{{ if use_service_interface }}I{{ entity_name }}Service, {{ end }}{{ entity_name }}Service>();
+        return services;
+    }
+}

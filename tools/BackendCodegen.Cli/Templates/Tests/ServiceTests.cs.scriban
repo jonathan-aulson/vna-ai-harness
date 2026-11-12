@@ -1,0 +1,94 @@
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using {{ application_namespace }};
+using {{ application_namespace }}.Dtos;
+using {{ domain_namespace }};
+using {{ result_namespace }};
+using Xunit;
+
+namespace {{ test_namespace }};
+
+{{- $req_fields = fields | array.filter @(do; ret $0.name != "Status"; end) }}
+
+public class {{ entity_name }}ServiceTests
+{
+    private readonly {{ if use_repository_interface }}I{{ end }}{{ entity_name }}Repository _repository = Substitute.For<{{ if use_repository_interface }}I{{ end }}{{ entity_name }}Repository>();
+    private readonly {{ entity_name }}Validator         _validator  = new();
+    private readonly ILogger<{{ entity_name }}Service>  _logger     = Substitute.For<ILogger<{{ entity_name }}Service>>();
+    private readonly {{ entity_name }}Service           _sut;
+
+    public {{ entity_name }}ServiceTests()
+    {
+        _sut = new {{ entity_name }}Service(_repository, _validator, _logger);
+    }
+{{ for op in operations -}}
+{{ $has_id = op.route | string.contains "{id}" -}}
+{{ $is_body = op.http_method == "POST" || op.http_method == "PUT" || op.http_method == "PATCH" }}
+    // ── {{ op.name }} ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task {{ op.service_method }}_ShouldReturnSuccess_WhenValidInput()
+    {
+        // Arrange
+{{ if op.request_dto -}}
+        var request = Valid{{ op.request_dto }}();
+{{ end -}}
+{{ if $has_id -}}
+{{ $has_id = op.has_route_id -}}
+{{ end -}}
+{{ if $has_id && !$is_body -}}
+{{-   $entity_var = entity_name | string.downcase }}
+        var {{ $entity_var }} = new {{ entity_name }} { {{ pk_name }} = id{{ for field in fields }}, {{ field.name }} = {{ if field.type == "string" }}"Valid{{ field.name }}"{{ else if field.type == "DateTime" }}DateTime.UtcNow{{ else if field.type == "Guid" }}Guid.NewGuid(){{ else if field.type == "DateOnly" }}DateOnly.FromDateTime(DateTime.UtcNow){{ else if field.type == "int" || field.type == "long" }}1{{ else }}default{{ end }}{{ end }} };
+        _repository.GetByIdAsync(Arg.Any<{{ pk_type }}>(), Arg.Any<CancellationToken>()).Returns({{ $entity_var }});
+{{ end }}
+        // Act
+{{ if $has_id && op.request_dto -}}
+        var result = await _sut.{{ op.service_method }}(id, request);
+{{ else if $has_id -}}
+        var result = await _sut.{{ op.service_method }}(id);
+{{ else if op.request_dto -}}
+        var result = await _sut.{{ op.service_method }}(request);
+{{ else -}}
+        var result = await _sut.{{ op.service_method }}();
+{{ end }}
+        // Assert
+        result.Success.Should().BeTrue();
+    }
+{{ if op.request_dto }}
+    [Fact]
+    public async Task {{ op.service_method }}_ShouldReturnFailure_WhenValidationFails()
+    {
+        // Arrange
+        var request = Invalid{{ op.request_dto }}();
+{{ if $has_id }}        var id = {{ pk_default }};
+{{ end }}
+        // Act
+{{ if $has_id -}}
+        var result = await _sut.{{ op.service_method }}(id, request);
+{{ else -}}
+        var result = await _sut.{{ op.service_method }}(request);
+{{ end }}
+        // Assert
+        result.Success.Should().BeFalse();
+    }
+{{ end -}}
+{{ end }}
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+{{ for op in operations -}}
+{{ if op.request_dto }}
+    private static {{ op.request_dto }} Valid{{ op.request_dto }}() => new(
+{{ for field in $req_fields -}}
+        {{ field.name }}: {{ if field.type == "string" }}"Valid{{ field.name }}"{{ else if field.type == "int" || field.type == "long" }}1{{ else if field.type == "bool" }}true{{ else if field.type == "Guid" }}Guid.NewGuid(){{ else if field.type == "DateTime" }}DateTime.UtcNow{{ else if field.type == "DateOnly" }}DateOnly.FromDateTime(DateTime.UtcNow){{ else }}default{{ end }}{{ if !for.last }},{{ end }}
+{{ end -}}
+    );
+
+    private static {{ op.request_dto }} Invalid{{ op.request_dto }}() => new(
+{{ for field in $req_fields -}}
+        {{ field.name }}: {{ if field.required && field.type == "string" }}null!{{ else }}default{{ end }}{{ if !for.last }},{{ end }}
+{{ end -}}
+    );
+{{ end -}}
+{{ end -}}
+}

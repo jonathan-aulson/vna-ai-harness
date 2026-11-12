@@ -1,0 +1,71 @@
+using Microsoft.EntityFrameworkCore;
+using {{ domain_namespace }};
+using {{ infrastructure_namespace }};
+
+namespace {{ application_namespace }};
+
+public class {{ entity_name }}Repository
+{
+    private readonly {{ db_context }} _db;
+
+    public {{ entity_name }}Repository({{ db_context }} db)
+    {
+        _db = db;
+    }
+{{ $seen = {} }}
+{{ for op in operations -}}
+{{ for method in op.repository_methods -}}
+{{- if !($seen[method]) }}
+{{-   $seen[method] = true }}
+{{-   if method == "GetAllAsync" }}
+    public async Task<IReadOnlyList<{{ entity_name }}>> GetAllAsync(CancellationToken ct = default)
+    {
+        return await _db.{{ feature_name }}
+            {{ if use_no_tracking }}.AsNoTracking()
+            {{ end }}.ToListAsync(ct);
+    }
+{{-   else if method == "GetByIdAsync" }}
+    public async Task<{{ entity_name }}?> GetByIdAsync({{ pk_type }} id, CancellationToken ct = default)
+    {
+        return await _db.{{ feature_name }}
+            {{ if use_no_tracking }}.AsNoTracking()
+            {{ end }}.FirstOrDefaultAsync(x => x.{{ pk_name }} == id, ct);
+    }
+{{-   else if method == "SaveAsync" }}
+    public async Task<{{ entity_name }}> SaveAsync({{ entity_name }} entity, CancellationToken ct = default)
+    {
+        _db.{{ feature_name }}.Add(entity);
+        await _db.SaveChangesAsync(ct);
+        return entity;
+    }
+{{-   else if method == "UpdateAsync" }}
+    public async Task UpdateAsync({{ entity_name }} entity, CancellationToken ct = default)
+    {
+        _db.{{ feature_name }}.Update(entity);
+        await _db.SaveChangesAsync(ct);
+    }
+{{-   else if method == "DeleteAsync" }}
+    public async Task DeleteAsync({{ pk_type }} id, CancellationToken ct = default)
+    {
+        var entity = await _db.{{ feature_name }}.FindAsync([id], ct);
+        if (entity is not null)
+        {
+            _db.{{ feature_name }}.Remove(entity);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+{{-   else if method == "AddAsync" }}
+    public async Task AddAsync({{ entity_name }} entity, CancellationToken ct = default)
+    {
+        await _db.{{ feature_name }}.AddAsync(entity, ct);
+    }
+{{-   else if method == "SaveChangesAsync" }}
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        await _db.SaveChangesAsync(ct);
+    }
+{{-   end }}
+{{- end }}
+{{ end -}}
+{{ end -}}
+}

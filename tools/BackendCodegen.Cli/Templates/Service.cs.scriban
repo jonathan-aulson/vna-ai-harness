@@ -1,0 +1,52 @@
+{{- $validator_dto = "" -}}
+{{- for op in operations -}}
+{{-   if op.request_dto && $validator_dto == "" -}}
+{{-     $validator_dto = op.request_dto -}}
+{{-   end -}}
+{{- end -}}
+using FluentValidation;
+using Microsoft.Extensions.Logging;
+using {{ application_namespace }}.Dtos;
+using {{ result_namespace }};
+
+namespace {{ application_namespace }};
+
+public sealed class {{ entity_name }}Service{{ if use_service_interface }} : I{{ entity_name }}Service{{ end }}
+{
+    private readonly {{ if use_repository_interface }}I{{ end }}{{ entity_name }}Repository _repository;
+{{ if $validator_dto != "" }}    private readonly {{ entity_name }}Validator _validator;
+{{ end }}    private readonly ILogger<{{ entity_name }}Service> _logger;
+
+    public {{ entity_name }}Service(
+        {{ if use_repository_interface }}I{{ end }}{{ entity_name }}Repository repository,
+{{ if $validator_dto != "" }}        {{ entity_name }}Validator validator,
+{{ end }}        ILogger<{{ entity_name }}Service> logger)
+    {
+        _repository = repository;
+{{ if $validator_dto != "" }}        _validator  = validator;
+{{ end }}        _logger     = logger;
+    }
+{{ for op in operations -}}
+{{ $has_id = op.has_route_id -}}
+{{- if $has_id && op.request_dto }}
+    public async Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ pk_type }} {{ pk_param_name }}, {{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else if $has_id }}
+    public async Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ pk_type }} {{ pk_param_name }}, CancellationToken cancellationToken = default)
+{{- else if op.request_dto }}
+    public async Task<Result<{{ op.response_dto }}>> {{ op.service_method }}({{ op.request_dto }} request, CancellationToken cancellationToken = default)
+{{- else }}
+    public async Task<Result<{{ op.response_dto }}>> {{ op.service_method }}(CancellationToken cancellationToken = default)
+{{- end }}
+    {
+{{- if op.request_dto }}
+        var validation = await _validator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var errors = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage));
+            return Result<{{ op.response_dto }}>.Fail(errors, 400);
+        }
+{{ end }}
+        return Result<{{ op.response_dto }}>.Ok(default!);
+    }
+{{ end -}}
+}

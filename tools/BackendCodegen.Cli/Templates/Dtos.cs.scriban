@@ -1,0 +1,52 @@
+namespace {{ application_namespace }}.Dtos;
+
+// ── Request DTOs ─────────────────────────────────────────────────────────────
+// Note: the CLI deduplicates request DTOs before rendering this template.
+// Status is server-controlled and is excluded from request DTOs.
+{{- for op in operations }}
+{{-   if op.request_dto }}
+{{-     $req_fields = fields | array.filter @(do; ret $0.name != "Status"; end) }}
+public sealed record {{ op.request_dto }}(
+{{-     for field in $req_fields }}
+{{-       if field.required }}
+    {{ field.type }} {{ field.name }}{{ if !for.last }},{{ end }}
+{{-       else }}
+    {{ field.type }}? {{ field.name }}{{ if !for.last }},{{ end }}
+{{-       end }}
+{{-     end }}
+);
+
+{{-   end }}
+{{- end }}
+// ── Response DTOs ────────────────────────────────────────────────────────────
+// Deduplicated: one record per unique responseDto name.
+// PK is always the first parameter; business fields follow.
+{{- $seen = {} }}
+{{- for op in operations }}
+{{- if !op.response_is_collection }}
+{{-   if !($seen[op.response_dto]) }}
+{{-     $seen[op.response_dto] = true }}
+{{-     $dto_fields = op.response_dto_fields ?? fields }}
+public sealed record {{ op.response_dto }}(
+    {{ pk_type }} {{ pk_name }}{{ if $dto_fields.size > 0 }},{{ end }}
+{{-     for field in $dto_fields }}
+    {{ field.type }}{{ if !field.required }}?{{ end }} {{ field.name }}{{ if !for.last }},{{ end }}
+{{-     end }}
+);
+
+{{-   end }}
+{{- else }}
+{{-   $inner = op.response_dto | string.replace "IReadOnlyList<" "" | string.replace ">" "" }}
+{{-   if !($seen[$inner]) }}
+{{-     $seen[$inner] = true }}
+{{-     $dto_fields = op.response_dto_fields ?? fields }}
+public sealed record {{ $inner }}(
+    {{ pk_type }} {{ pk_name }}{{ if $dto_fields.size > 0 }},{{ end }}
+{{-     for field in $dto_fields }}
+    {{ field.type }}{{ if !field.required }}?{{ end }} {{ field.name }}{{ if !for.last }},{{ end }}
+{{-     end }}
+);
+
+{{-   end }}
+{{- end }}
+{{- end }}

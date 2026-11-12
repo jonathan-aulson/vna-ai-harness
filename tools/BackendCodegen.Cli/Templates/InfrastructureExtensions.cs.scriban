@@ -1,0 +1,21 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using {{ repository_interface_namespace }};
+using {{ infrastructure_namespace }}.Persistence;
+using {{ infrastructure_namespace }}.Persistence.Repositories;
+
+namespace {{ infrastructure_namespace }};
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection Add{{ module_name }}Infrastructure(
+        this IServiceCollection services, string connectionString)
+    {
+        services.AddDbContext<{{ db_context }}>(opts =>
+            opts.UseSqlServer(connectionString, sql => sql.MigrationsAssembly("DatabaseMigrations")));
+
+        services.AddScoped<I{{ entity_name }}Repository, {{ entity_name }}Repository>();
+
+        return services;
+    }
+}

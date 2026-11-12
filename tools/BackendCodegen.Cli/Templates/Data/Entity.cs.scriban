@@ -1,0 +1,14 @@
+namespace {{ domain_namespace }};
+
+public class {{ entity_name }}
+{
+    public {{ pk_type }} {{ pk_name }} { get; set; }
+{{ for field in fields }}
+    public {{ field.type }}{{ if !field.required }}?{{ end }} {{ field.name }} { get; set; }{{ if field.type == "string" && field.required }} = null!;{{ end }}
+{{ end }}
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+{{ if record_lock_kind == "record" }}
+    public byte[] Version { get; set; } = Array.Empty<byte>();
+{{ end }}
+}

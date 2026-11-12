@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -u
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCAN_SCRIPT="$REPO_ROOT/scripts/local-security-scan.sh"
+
+if [ ! -x "$SCAN_SCRIPT" ]; then
+  echo "[pre-commit] Missing executable scanner: scripts/local-security-scan.sh"
+  echo "[pre-commit] Run: chmod +x scripts/local-security-scan.sh"
+  exit 1
+fi
+
+echo "[pre-commit] Running local security checks..."
+"$SCAN_SCRIPT" --hook
+exit $?

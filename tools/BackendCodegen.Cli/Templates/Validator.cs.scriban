@@ -1,0 +1,35 @@
+using FluentValidation;
+using {{ application_namespace }}.Dtos;
+
+namespace {{ application_namespace }};
+
+{{- $primary_dto = "" -}}
+{{- for op in operations -}}
+{{-   if op.request_dto && $primary_dto == "" -}}
+{{-     $primary_dto = op.request_dto -}}
+{{-   end -}}
+{{- end -}}
+{{ if $primary_dto != "" }}
+public sealed class {{ entity_name }}Validator : AbstractValidator<{{ $primary_dto }}>
+{
+    public {{ entity_name }}Validator()
+    {
+{{ for rule in validation_rules }}
+{{-   $has_not_empty = rule.rule | string.contains "NotEmpty" -}}
+{{-   $has_max_len   = (rule.rule | string.contains "MaximumLength") || (rule.rule | string.contains "MaxLength") -}}
+{{-   $has_not_null  = rule.rule | string.contains "NotNull" -}}
+{{-   $has_email     = rule.rule | string.contains "EmailAddress" -}}
+{{-   $has_gt        = rule.rule | string.contains "GreaterThan" -}}
+{{-   $chain = "" -}}
+{{-   if $has_not_empty -}}{{- $chain = $chain + ".NotEmpty()" -}}{{- end -}}
+{{-   if $has_max_len && rule.max_length > 0 -}}{{- $chain = $chain + ".MaximumLength(" + rule.max_length + ")" -}}{{- end -}}
+{{-   if $has_not_null -}}{{- $chain = $chain + ".NotNull()" -}}{{- end -}}
+{{-   if $has_email -}}{{- $chain = $chain + ".EmailAddress()" -}}{{- end -}}
+{{-   if $has_gt -}}{{- $chain = $chain + ".GreaterThan(0)" -}}{{- end -}}
+{{-   if $chain != "" }}
+        RuleFor(x => x.{{ rule.field }}){{ $chain }}.WithMessage("{{ rule.message }}");
+{{   end -}}
+{{ end }}
+    }
+}
+{{ end }}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>{{ target_framework }}</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>{{ module_name }}.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../{{ module_name }}.Domain/{{ module_name }}.Domain.csproj" />
+    <ProjectReference Include="../../../src/SharedKernel/SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
